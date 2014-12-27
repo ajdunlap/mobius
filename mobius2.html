@@ -13,10 +13,15 @@
   
       var scene = new THREE.Scene();
   
+      var theta = 0;
       var camera = new THREE.PerspectiveCamera (3, width/height, 0.1, 5000);
-      camera.position.z = 500;
-      camera.position.x = 0;
-      camera.position.y = 0;
+      function positionCamera () {
+        camera.position.z = 800*Math.cos(theta);
+        camera.position.x = 800*Math.sin(theta);
+        camera.position.y = 0;
+        camera.lookAt(new THREE.Vector3(0,0,0));
+      }
+      positionCamera();
   
       var renderer = new THREE.WebGLRenderer();
       renderer.sortObjects = false;
@@ -43,30 +48,145 @@
       pointLight3.position.z = -3000;
       scene.add(pointLight3);
 
-      // Set up the earth
-      //var sphereGeometry = new THREE.SphereGeometry (50,30,30);
-      //var sphereTex = THREE.ImageUtils.loadTexture('pix/world3.png',{},function () {renderer.render(scene,camera);});
-      //sphereTex.wrapS = sphereTex.wrapT = THREE.ClampToEdgeWrapping;
-      //var sphereMat = new THREE.MeshLambertMaterial({map: sphereTex,opacity: 1});
-      //var sphere = new THREE.Mesh (sphereGeometry, sphereMat);
-      //sphere.position.set(0,0,0);
-      //scene.add(sphere);
+      var L = 101;
 
       function wrapBetween (L, geom, topVs, bottomVs) {
-        var v = geom.vertices[L].clone();
-        v.sub(bottomVs[L+1]);
-        for (var j = 0 ; j < 2*L ; j++) {
-          geom.vertices[L].sub(v);
-        }
-        geom.translate(geom.vertices[L+1]
-        var vertices = geom.vertices.slice();
+        geom.morphTargets = [];
+        vertices = geom.vertices.slice();
         for (var i = 0 ; i < L ; ++i) {
-          for (var j = 0 ; j < L ; ++j) {
-
+          if (i == 0) {
+            vertices[i] = topVs[i];
+            vertices[i+L] = bottomVs[i];
+          } else {
+            for (j = 0 ; j < 2*L ; ++j) {
+              vertices[j] = vertices[j].clone();
+            }
+            var B = new THREE.Matrix4();
+            var u = vertices[i];
+            var v = vertices[i+L];
+            var w = vertices[i-1];
+            var uu = topVs[i];
+            var vv = bottomVs[i];
+            var ww = topVs[i-1];
+            var A = new THREE.Matrix4(v.x-u.x,w.x-u.x,Math.random(),0,
+                                      v.y-u.y,w.y-u.y,Math.random(),0,
+                                      v.z-u.z,w.z-u.z,Math.random(),0,
+                                      0,0,0,1
+                                      );
+            var B = new THREE.Matrix4(vv.x-uu.x,ww.x-uu.x,Math.random(),0,
+                                      vv.y-uu.y,ww.y-uu.y,Math.random(),0,
+                                      vv.z-uu.z,ww.z-uu.z,Math.random(),0,
+                                      0,0,0,1
+                                      );
+            var Ainv = new THREE.Matrix4();
+            Ainv.getInverse(A);
+            var C = new THREE.Matrix4();
+            C.multiplyMatrices(B,Ainv);
+            var uuu = u.clone();
+            uuu.applyMatrix4(C);
+            var D = new THREE.Matrix4();
+            D.makeTranslation(uu.x-uuu.x,uu.y-uuu.y,uu.z-uuu.z);
+            var E = new THREE.Matrix4();
+            E.multiplyMatrices(D,C);
+  
+            for (var j = i ; j < L ; ++j) {
+              vertices[j].applyMatrix4(E);
+              vertices[j+L].applyMatrix4(E);
+            }
           }
+          geom.morphTargets[i] = {name:'v'+i,vertices:vertices.slice()};
         }
+          
+        //for (var j = 0 ; j < L ; j++) {
+          //geom.vertices[j] = topVs[j];
+        //}
+        //for ( ; j < 2*L ; ++j) {
+          //geom.vertices[j] = bottomVs[j-L];
+        //}
+        //var vertices = geom.vertices.slice();
+        //for (var i = 0 ; i < L ; ++i) {
+          //for (var j = 0 ; j < L ; ++j) {
+            //
+          //}
+        //}
       }
 
+      var topVs = [];
+      var bottomVs = [];
+      var midVs = [];
+      for (var j = 0 ; j < L ; ++j) {
+        var r = 10-2.5*Math.cos(Math.PI*j/(L-1));
+        var R = 10+2.5*Math.cos(Math.PI*j/(L-1));
+        topVs[j] = new THREE.Vector3(R*Math.cos(2*Math.PI*j/(L-1)),
+        R*Math.sin(2*Math.PI*j/(L-1)),
+        2.5*Math.sin(Math.PI*j/(L-1)));
+      bottomVs[j] = new THREE.Vector3(r*Math.cos(2*Math.PI*j/(L-1)),
+      r*Math.sin(2*Math.PI*j/(L-1)),
+      -2.5*Math.sin(Math.PI*j/(L-1)));
+    var tmp = topVs[j].clone();
+    tmp.multiplyScalar(1-j/(L-1));
+    midVs[j] = bottomVs[j].clone();
+    midVs[j].multiplyScalar(j/(L-1));
+    midVs[j].add(tmp);
+      }
+
+      var topG = new THREE.Geometry();
+      topG.vertices = topVs;
+      var topM = new THREE.LineBasicMaterial({color:0xFF0000,linewidth:4});
+      var topp = new THREE.Line(topG,topM);
+      scene.add(topp);
+
+      var bottomG = new THREE.Geometry();
+      bottomG.vertices = bottomVs;
+      var bottomM = new THREE.LineBasicMaterial({color:0x00FF00,linewidth:4});
+      var bottom = new THREE.Line(bottomG,bottomM);
+      scene.add(bottom);
+
+      var midG = new THREE.Geometry();
+      midG.vertices = midVs;
+      var midM = new THREE.LineBasicMaterial({color:0x0000FF,linewidth:4});
+      var mid = new THREE.Line(midG,midM);
+      scene.add(mid);
+
+      var stripG = new THREE.PlaneGeometry(20,5,L-1);
+      wrapBetween(L,stripG,topVs,bottomVs);
+      var stripM = new THREE.MeshPhongMaterial( { side: THREE.DoubleSide, color: 0x111166,morphTargets:true} );
+      var strip = new THREE.Mesh(stripG,stripM);
+      strip.morphTargetInfluences = [];
+      for (var j = 0 ; j < L ; ++j) {
+        strip.morphTargetInfluences[j] = 0;
+      }
+      scene.add(strip);
+      var step = 0;
+      var fwd = true;
+
+      render = function () {
+        requestAnimationFrame(render);
+        theta += 0.01;
+        positionCamera();
+        if (fwd) {
+          if (step < 200) {
+            if (step < 100) strip.morphTargetInfluences[step] = 0;
+            ++step;
+            if (step < 101) strip.morphTargetInfluences[step] = 1;
+          } else {
+            fwd = false;
+          }
+        } else {
+          if (step > 2) {
+            if (step < 101) strip.morphTargetInfluences[step] = 0;
+            --step;
+            if (step < 100) strip.morphTargetInfluences[step] = 1;
+          } else {
+            fwd = true;
+          }
+        }
+        //strip.rotation.x += 0.01;
+        renderer.render(scene,camera);
+      }
+
+
+      /*
       L = 100;
       var stripG = new THREE.PlaneGeometry(20,5,L);
       console.log(stripG.vertices);
@@ -215,7 +335,8 @@
         cut.rotation.z += 0.01;
         renderer.render(scene,camera);
       }
-      render();
+      */
+      setTimeout(render,100);
     }
 
     window.onload = setup;
