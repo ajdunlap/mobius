@@ -5,16 +5,25 @@
     <style type="text/css">p,label { font-family: "Arial", "Liberation Sans", sans-serif; }</style>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <script type="text/javascript" src="js/three.min.js"></script>
+    <script type="text/javascript" src="js/TrackballControls.js"></script>
 
   <script type="text/javascript">
     function setup () {
       var width = 800;
       var height = 600;
-  
+
       var scene = new THREE.Scene();
-  
+
       var theta = 0;
+      var renderer = new THREE.WebGLRenderer();
+      renderer.sortObjects = false;
+      renderer.setSize(width,height);
+      document.getElementById('animation-space').appendChild(renderer.domElement);
       var camera = new THREE.PerspectiveCamera (3, width/height, 0.1, 5000);
+      render = function () {
+        //console.log('render');
+        renderer.render(scene,camera);
+      }
       function positionCamera () {
         camera.position.z = 800*Math.cos(theta);
         camera.position.x = 800*Math.sin(theta);
@@ -22,13 +31,22 @@
         camera.lookAt(new THREE.Vector3(0,0,0));
       }
       positionCamera();
-  
-      var renderer = new THREE.WebGLRenderer();
-      renderer.sortObjects = false;
-      renderer.setSize(width,height);
-      document.getElementById('animation-space').appendChild(renderer.domElement);
 
-      var light = new THREE.AmbientLight( 0x404040 ); // soft white light
+      var controls = new THREE.TrackballControls(camera);
+      controls.rotateSpeed = 4.0;
+      controls.zoomSpeed = 1.2;
+      controls.panSpeed = 0.8;
+
+      controls.noZoom = false;
+      controls.noPan = true;
+
+      controls.staticMoving = true;
+      controls.dynamicDampingFactor = 0.3;
+
+      controls.keys = [ 65, 83, 68 ];
+      //controls.addEventListener('change',render);
+
+      var light = new THREE.AmbientLight( 0x808080 ); // soft white light
       scene.add( light );
 
       // Set up the light source
@@ -101,6 +119,14 @@
         }
       }
 
+      /*
+      function morphAlong (geom,line,a,b) {
+        for (var f = 0 ; f < geom.morphTargets.length ; ++f) {
+          line.morphTargets[f] = {name:'v'+f,vertices:geom.morphTargets[f].vertices.slice(a,b)};
+        }
+      }
+      */
+
       var topVs = [];
       var bottomVs = [];
       var midVs = [];
@@ -134,7 +160,7 @@
 
       var midG = new THREE.Geometry();
       midG.vertices = midVs;
-      var midM = new THREE.LineBasicMaterial({color:0x0000FF,linewidth:4});
+      var midM = new THREE.LineBasicMaterial({color:0x003366,linewidth:4});
       var mid = new THREE.Line(midG,midM);
       //scene.add(mid);
 
@@ -142,12 +168,12 @@
       stripCutG.vertices = [new THREE.Vector3(-10,0,2.5),new THREE.Vector3(-10,0,-2.5)];
       var stripCutM = new THREE.LineBasicMaterial({color:0xFF0000,linewidth:4});
       var stripCut = new THREE.Line(stripCutG,stripCutM);
-      scene.add(stripCut);
+      //scene.add(stripCut);
 
       /*
       var stripG = new THREE.PlaneGeometry(20,5,L-1);
       wrapBetween(L,stripG,topVs,bottomVs);
-      var stripM = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0x111166,morphTargets:true} );
+      var stripM = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0x881166,morphTargets:true} );
       var strip = new THREE.MorphAnimMesh(stripG,stripM);
       strip.setFrameRange(2,L-1);
       strip.mirroredLoop = true;
@@ -161,7 +187,7 @@
 
       var strip1G = new THREE.PlaneGeometry(10,5,(L-1)/2);
       wrapBetween((L+1)/2,strip1G,topVs.slice(0,(L+1)/2),bottomVs.slice(0,(L+1)/2));
-      var strip1M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0xFF1166,morphTargets:true} );
+      var strip1M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0x881166,morphTargets:true} );
       var strip1 = new THREE.MorphAnimMesh(strip1G,strip1M);
       strip1.setFrameRange(2,(L+1)/2-1);
       strip1.mirroredLoop = true;
@@ -174,7 +200,7 @@
       var bvsR = bottomVs.slice(L/2);
       bvsR.reverse();
       wrapBetween((L+1)/2,strip2G,tvsR,bvsR);
-      var strip2M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0xFF1166,morphTargets:true} );
+      var strip2M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0x881166,morphTargets:true} );
       var strip2 = new THREE.MorphAnimMesh(strip2G,strip2M);
       strip2.setFrameRange(2,(L+1)/2-1);
       strip2.mirroredLoop = true;
@@ -182,28 +208,48 @@
       scene.add(strip2);
 
       var tri1G = new THREE.PlaneGeometry(20,5,L-1);
+      //tri1G.vertexColors = [];
       for (var j = 0 ; j < L ; ++j) {
         tri1G.vertices[j].y = 5-5*j/L;
       }
       for ( ; j < 2*L ; ++j) {
         tri1G.vertices[j].y = 0;
       }
+      var red = new THREE.Color(0xFF0000);
+      var blue = new THREE.Color(0x0033FF);
+      var green = new THREE.Color(0x0033FF);
+      for (var c = 0 ; c < tri1G.faces.length ; ++c) {
+        var f = tri1G.faces[c];
+        for (var v = 0 ; v < 3 ; ++v) {
+          var j = v == 0 ? f.a : v == 1 ? f.b : f.c;
+          f.vertexColors[v] = j < L ? red : green;
+        }
+      }
       var mvsR = midVs.slice();
       mvsR.reverse();
       var all_tvsR = topVs.slice();
       all_tvsR.reverse();
       wrapBetween(L,tri1G,all_tvsR,mvsR);
-      var tri1M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0xFF1166,morphTargets:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:0.1} );
+      var tri1M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, /*color: 0xFF1166,*/morphTargets:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:0.1,vertexColors:THREE.VertexColors} );
       var tri1 = new THREE.MorphAnimMesh(tri1G,tri1M);
       tri1.mirroredLoop = true;
       tri1.setFrameRange(2,L-1);
       tri1.duration = 100;
+
+      /*
+      tri1hlG = new THREE.Geometry();
+      tri1hlG.vertices = tri1G.vertices.slice(0,L);
+      morphAlong(tri1G,tri1hlG,0,L);
+      tri1hlM = new THREE.LineBasicMaterial({color:0xffff00,linewidth:14,morphTargets:true});
+      tri1hl = new THREE.Line(tri1hlG,tri1hlM);
+      //scene.add(tri1hl);
       //tri1.morphTargetInfluences = [];
       //for (var j = 0 ; j < L ; ++j) {
         //tri1.morphTargetInfluences[j] = 0;
       //}
       //tri1.morphTargetInfluences[L-1] = 1;
       //scene.add(tri1);
+      */
 
       var tri2G = new THREE.PlaneGeometry(20,5,L-1);
       for (var j = 0 ; j < L ; ++j) {
@@ -212,8 +258,17 @@
       for ( ; j < 2*L ; ++j) {
         tri2G.vertices[j].y = 0;
       }
+      var red = new THREE.Color(0xFF0000);
+      var blue = new THREE.Color(0x0000FF);
+      for (var c = 0 ; c < tri2G.faces.length ; ++c) {
+        var f = tri2G.faces[c];
+        for (var v = 0 ; v < 3 ; ++v) {
+          var j = v == 0 ? f.a : v == 1 ? f.b : f.c;
+          f.vertexColors[v] = j < L ? red : blue;
+        }
+      }
       wrapBetween(L,tri2G,bottomVs,midVs);
-      var tri2M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0xFF1166,morphTargets:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:0.1} );
+      var tri2M = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide, color: 0xFF1166,morphTargets:true,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:0.1,vertexColors:THREE.VertexColors} );
       var tri2 = new THREE.MorphAnimMesh(tri2G,tri2M);
       tri2.mirroredLoop = true;
       tri2.setFrameRange(2,L-1);
@@ -242,13 +297,17 @@
       var substage = 0;
       var nextstage = 0;
       var sq = true;
+      //tri1hl.morphTargetInfluences = [];
+      //tri1hl.morphTargetInfluences[30] = 1;
 
-      render = function () {
-        requestAnimationFrame(render);
-        theta += 0.01;
-        positionCamera();
+      animate = function () {
+        requestAnimationFrame(animate);
+        controls.update();
+        //theta += 0.01;
+        //positionCamera();
         if (stage == 1 || stage == 2) {
           tri1.updateAnimation(1);
+          //tri1hl.updateAnimation(1);
           tri2.updateAnimation(1);
           strip1.updateAnimation(1);
           strip2.updateAnimation(1);
@@ -267,15 +326,15 @@
             if (nextstage == 2) {
               if (sq) {
                 sq = false;
-                scene.remove(stripCut);
-                scene.add(mid);
+                //scene.remove(stripCut);
+                //scene.add(mid);
                 scene.remove(strip1);
                 scene.remove(strip2);
                 scene.add(tri1);
                 scene.add(tri2);
               } else {
-                scene.add(stripCut);
-                scene.remove(mid);
+                //scene.add(stripCut);
+                //scene.remove(mid);
                 sq = true;
                 scene.add(strip1);
                 scene.add(strip2);
@@ -288,10 +347,13 @@
             stage = nextstage;
           }
         }
-        renderer.render(scene,camera);
+        //renderer.render(scene,camera);
+        //controls.update();
+        //console.log('animate');
+        render();
       }
 
-      setTimeout(render,100);
+      setTimeout(animate,100);
     }
 
     window.onload = setup;
@@ -299,14 +361,14 @@
   </head>
 <body>
   <p>
-    A Möbius strip being cut into a flat shape in two different ways.
+    A Möbius strip being cut into a flat shape in two different ways. Left-drag to rotate, middle-drag to zoom.
   </p>
   <div id="animation-space">
   </div>
 
-  <p><small>Don't see anything? Most likely your browser isn't set up for <a href="http://www.khronos.org/webgl/">WebGL</a>. Maybe <a href="http://get.webgl.org/">get.webgl.org</a> will be helpful. If you see the spinning cube on that website but don't see anything here, <a href="https://github.com/ajdunlap/visualizing-so3/issues">do complain</a>.</small></p>
+  <p><small>Don't see anything? Most likely your browser isn't set up for <a href="http://www.khronos.org/webgl/">WebGL</a>. Maybe <a href="http://get.webgl.org/">get.webgl.org</a> will be helpful. If you see the spinning cube on that website but don't see anything here, <a href="https://github.com/ajdunlap/mobius/issues">do complain</a>.</small></p>
   <hr />
-  <p><small>Source available on <a href="https://github.com/ajdunlap/visualizing-so3">GitHub</a>. Created with <a href="http://threejs.org">three.js</a>.</small></p>
+  <p><small>Source available on <a href="https://github.com/ajdunlap/mobius">GitHub</a>. Created with <a href="http://threejs.org">three.js</a>.</small></p>
   <a href="http://www.w3.org/html/logo/">
 <img src="http://www.w3.org/html/logo/badge/html5-badge-h-graphics.png" width="66" height="32" alt="HTML5 Powered with Graphics, 3D &amp; Effects" title="HTML5 Powered with Graphics, 3D &amp; Effects">
 </a>
